@@ -18,6 +18,7 @@
  */
 package org.apache.maven.shared.jar;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,21 +34,15 @@ import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 
 /**
- * Open a JAR file to be analyzed. Note that once created, the {@link #closeQuietly()} method should be called to
- * release the associated file handle.
+ * Open a JAR file to be analyzed. The associated file handle should be closed when analysis is complete.
  *
  * Typical usage:
  * <pre>
- *  JarAnalyzer jar = new JarAnalyzer( jarFile );
- *
- *  try
+ *  JarClasses jarClasses;
+ *  try (JarAnalyzer jar = new JarAnalyzer(jarFile))
  *  {
  *      // do some analysis, such as:
- *      jarClasses = jarClassAnalyzer.analyze( jar );
- *  }
- *  finally
- *  {
- *      jar.closeQuietly();
+ *      jarClasses = jarClassAnalyzer.analyze(jar);
  *  }
  *
  *  // use jar.getJarData() in some way, or the data returned by the JAR analyzer. jar itself can no longer be used.
@@ -60,7 +55,7 @@ import java.util.zip.ZipEntry;
  * @see org.apache.maven.shared.jar.identification.JarIdentificationAnalysis#analyze(JarAnalyzer)
  * @see org.apache.maven.shared.jar.classes.JarClassesAnalysis#analyze(JarAnalyzer)
  */
-public class JarAnalyzer {
+public class JarAnalyzer implements Closeable {
     /**
      * Pattern to filter JAR entries for class files.
      *
@@ -89,7 +84,8 @@ public class JarAnalyzer {
     private final JarData jarData;
 
     /**
-     * Constructor. Opens the JAR file, so should be matched by a call to {@link #closeQuietly()}.
+     * Constructor. Opens the JAR file, so should be matched by a call to {@link #close()} or
+     * {@link #closeQuietly()}.
      *
      * @param file the JAR file to open
      * @throws java.io.IOException if there is a problem opening the JAR file, or reading the manifest. The JAR file
@@ -135,6 +131,16 @@ public class JarAnalyzer {
         } catch (IOException e) {
             // not much we can do about it but ignore it
         }
+    }
+
+    /**
+     * Close the associated JAR file.
+     *
+     * @throws IOException if an I/O error occurs while closing the JAR file
+     */
+    @Override
+    public void close() throws IOException {
+        jarFile.close();
     }
 
     /**
