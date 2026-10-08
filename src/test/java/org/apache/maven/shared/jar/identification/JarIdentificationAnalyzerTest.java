@@ -21,6 +21,7 @@ package org.apache.maven.shared.jar.identification;
 import javax.inject.Inject;
 
 import java.io.File;
+import java.util.Collections;
 
 import org.apache.maven.shared.jar.AbstractJarAnalyzerTestCase;
 import org.apache.maven.shared.jar.JarAnalyzer;
@@ -30,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * JarAnalyzer Taxon Analyzer Test Case
@@ -46,6 +48,15 @@ class JarIdentificationAnalyzerTest extends AbstractJarAnalyzerTestCase {
         JarIdentification taxon = analyzer.analyze(new JarAnalyzer(jarfile));
         assertNotNull(taxon, "JarIdentification");
         return taxon;
+    }
+
+    private JarIdentification analyzeWithExposer(JarIdentificationExposer exposer) throws Exception {
+        JarAnalyzer jarAnalyzer = new JarAnalyzer(getSampleJar("jxr.jar"));
+        try {
+            return new JarIdentificationAnalysis(Collections.singletonList(exposer)).analyze(jarAnalyzer);
+        } finally {
+            jarAnalyzer.closeQuietly();
+        }
     }
 
     @Test
@@ -70,12 +81,11 @@ class JarIdentificationAnalyzerTest extends AbstractJarAnalyzerTestCase {
     void taxonAnalyzerWithCODEC() throws Exception {
         JarIdentification taxon = getJarTaxon("codec.jar");
 
-        assertEquals("org.apache.commons.codec", taxon.getGroupId(), "identification.groupId");
+        assertNull(taxon.getGroupId(), "ambiguous identification.groupId");
+        assertTrue(taxon.getPotentialGroupIds().contains("org.apache.commons.codec"), "potential groupId");
         assertEquals("codec", taxon.getArtifactId(), "identification.artifactId");
-        // TODO fix assertion
-        // assertEquals( "identification.version", "codec_release_1_0_0_interim_20030519095102_build",
-        // identification.getVersion() );
-        assertEquals("20030519", taxon.getVersion(), "identification.version");
+        assertNull(taxon.getVersion(), "ambiguous identification.version");
+        assertTrue(taxon.getPotentialVersions().contains("20030519"), "potential version");
         assertEquals("codec", taxon.getName(), "identification.name");
         assertNull(taxon.getVendor(), "identification.vendor");
 
@@ -86,13 +96,74 @@ class JarIdentificationAnalyzerTest extends AbstractJarAnalyzerTestCase {
     void taxonAnalyzerWithANT() throws Exception {
         JarIdentification taxon = getJarTaxon("ant.jar");
 
-        assertEquals("org.apache.tools.ant", taxon.getGroupId(), "identification.groupId");
+        assertNull(taxon.getGroupId(), "ambiguous identification.groupId");
+        assertTrue(taxon.getPotentialGroupIds().contains("org.apache.tools.ant"), "potential groupId");
         assertEquals("ant", taxon.getArtifactId(), "identification.artifactId");
-        assertEquals("1.6.5", taxon.getVersion(), "identification.version");
+        assertNull(taxon.getVersion(), "ambiguous identification.version");
+        assertTrue(taxon.getPotentialVersions().contains("1.6.5"), "potential version");
         // TODO fix assertion
         // assertEquals( "identification.name", "Apache Ant", identification.getName() );
         assertEquals("Apache Software Foundation", taxon.getVendor(), "identification.vendor");
 
         // TODO assert potentials too
+    }
+
+    @Test
+    void leavesAmbiguousPotentialValuesUnset() throws Exception {
+        JarIdentification identification = analyzeWithExposer((result, ignored) -> {
+            result.addGroupId("org.example");
+            result.addGroupId("com.example");
+            result.addArtifactId("jxr");
+            result.addArtifactId("maven-jxr");
+            result.addVersion("1.0");
+            result.addVersion("1.0.3");
+            result.addName("jxr");
+            result.addName("Maven JXR");
+            result.addVendor("Apache");
+            result.addVendor("Apache Software Foundation");
+        });
+
+        assertNull(identification.getGroupId(), "ambiguous groupId");
+        assertNull(identification.getArtifactId(), "ambiguous artifactId");
+        assertNull(identification.getVersion(), "ambiguous version");
+        assertNull(identification.getName(), "ambiguous name");
+        assertNull(identification.getVendor(), "ambiguous vendor");
+        assertEquals(2, identification.getPotentialGroupIds().size(), "potential groupIds");
+        assertEquals(2, identification.getPotentialArtifactIds().size(), "potential artifactIds");
+        assertEquals(2, identification.getPotentialVersions().size(), "potential versions");
+        assertEquals(2, identification.getPotentialNames().size(), "potential names");
+        assertEquals(2, identification.getPotentialVendors().size(), "potential vendors");
+    }
+
+    @Test
+    void infersValuesFromSinglePotentialCandidates() throws Exception {
+        JarIdentification identification = analyzeWithExposer((result, ignored) -> {
+            result.addGroupId("org.example");
+            result.addArtifactId("example-artifact");
+            result.addVersion("1.2.3");
+            result.addName("Example Artifact");
+            result.addVendor("Example Org");
+        });
+
+        assertEquals("org.example", identification.getGroupId(), "groupId");
+        assertEquals("example-artifact", identification.getArtifactId(), "artifactId");
+        assertEquals("1.2.3", identification.getVersion(), "version");
+        assertEquals("Example Artifact", identification.getName(), "name");
+        assertEquals("Example Org", identification.getVendor(), "vendor");
+    }
+
+    @Test
+    void retainsExplicitValuesWhenPotentialCandidatesConflict() throws Exception {
+        JarIdentification identification = analyzeWithExposer((result, ignored) -> {
+            result.addGroupId("org.example");
+            result.addGroupId("com.example");
+            result.addAndSetGroupId("org.example");
+            result.addVersion("1.0");
+            result.addVersion("1.0.3");
+            result.addAndSetVersion("1.0.3");
+        });
+
+        assertEquals("org.example", identification.getGroupId(), "explicit groupId");
+        assertEquals("1.0.3", identification.getVersion(), "explicit version");
     }
 }

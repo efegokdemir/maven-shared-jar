@@ -22,7 +22,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Gathered Maven information about the JAR file. Stores both assumed/validated values and potential values.
+ * Gathered Maven information about the JAR file. Stores both assumed/validated values and potential values. When no
+ * exposer validates a field, {@link JarIdentificationAnalysis} only infers it if there is one distinct non-empty
+ * potential value; conflicting candidates remain available through the potential-value getters.
  *
  * @see org.apache.maven.shared.jar.identification.JarIdentificationAnalysis#analyze(org.apache.maven.shared.jar.JarAnalyzer)
  */
