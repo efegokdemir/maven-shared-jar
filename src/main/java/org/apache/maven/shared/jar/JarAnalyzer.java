@@ -38,14 +38,12 @@ import java.util.zip.ZipEntry;
  *
  * Typical usage:
  * <pre>
- *  JarClasses jarClasses;
  *  try (JarAnalyzer jar = new JarAnalyzer(jarFile))
  *  {
  *      // do some analysis, such as:
- *      jarClasses = jarClassAnalyzer.analyze(jar);
+ *      JarClasses jarClasses = jarClassAnalyzer.analyze(jar);
+ *      // use jarClasses or jar.getJarData() while the JAR is open
  *  }
- *
- *  // use jar.getJarData() in some way, or the data returned by the JAR analyzer. jar itself can no longer be used.
  * </pre>
  *
  * Note: that the actual data is separated from this class by design to minimise the chance of forgetting to close the
@@ -119,7 +117,11 @@ public class JarAnalyzer implements Closeable {
      * @throws java.io.IOException if there is a problem opening the individual entry
      */
     public InputStream getEntryInputStream(JarEntry entry) throws IOException {
-        return jarFile.getInputStream(entry);
+        try {
+            return jarFile.getInputStream(entry);
+        } catch (IllegalStateException e) {
+            throw new IOException("The JAR file is closed", e);
+        }
     }
 
     /**

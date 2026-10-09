@@ -115,7 +115,7 @@ class JarAnalyzerTest extends AbstractJarAnalyzerTestCase {
             }
         }
 
-        assertThrows(IllegalStateException.class, () -> closedAnalyzer.getEntryInputStream(entry));
+        assertThrows(IOException.class, () -> closedAnalyzer.getEntryInputStream(entry));
     }
 
     @Test
