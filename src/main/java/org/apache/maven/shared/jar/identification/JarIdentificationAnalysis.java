@@ -101,8 +101,8 @@ public class JarIdentificationAnalysis {
     }
 
     /**
-     * Returns the only non-empty candidate. Potential values do not carry source or confidence information, so they
-     * cannot be ranked safely when they disagree.
+     * Returns the value when there is at most one distinct non-empty candidate, or {@code null} when candidates
+     * conflict.
      */
     private String pickUnambiguous(List<String> values) {
         String candidate = null;
