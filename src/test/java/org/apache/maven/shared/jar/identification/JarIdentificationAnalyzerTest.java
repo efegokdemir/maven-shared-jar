@@ -21,10 +21,17 @@ package org.apache.maven.shared.jar.identification;
 import javax.inject.Inject;
 
 import java.io.File;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.DefaultArtifact;
 import org.apache.maven.shared.jar.AbstractJarAnalyzerTestCase;
 import org.apache.maven.shared.jar.JarAnalyzer;
+import org.apache.maven.shared.jar.identification.exposers.RepositorySearchExposer;
+import org.apache.maven.shared.jar.identification.hash.JarHashAnalyzer;
+import org.apache.maven.shared.jar.identification.repository.RepositoryHashSearch;
 import org.codehaus.plexus.testing.PlexusTest;
 import org.junit.jupiter.api.Test;
 
@@ -165,5 +172,48 @@ class JarIdentificationAnalyzerTest extends AbstractJarAnalyzerTestCase {
 
         assertEquals("org.example", identification.getGroupId(), "explicit groupId");
         assertEquals("1.0.3", identification.getVersion(), "explicit version");
+    }
+
+    @Test
+    void usesTheOnlyRepositoryMatch() throws Exception {
+        Artifact match = artifact("org.example", "example", "1.2.3");
+        JarIdentification identification = analyzeWithExposer(repositoryExposer(Collections.singletonList(match)));
+
+        assertEquals("org.example", identification.getGroupId(), "groupId");
+        assertEquals("example", identification.getArtifactId(), "artifactId");
+        assertEquals("1.2.3", identification.getVersion(), "version");
+    }
+
+    @Test
+    void leavesConflictingRepositoryMatchesUnselected() throws Exception {
+        List<Artifact> matches = Arrays.asList(
+                artifact("org.example", "example", "1.2.3"), artifact("com.example", "example-legacy", "2.0"));
+        JarIdentification identification = analyzeWithExposer(repositoryExposer(matches));
+
+        assertNull(identification.getGroupId(), "ambiguous groupId");
+        assertNull(identification.getArtifactId(), "ambiguous artifactId");
+        assertNull(identification.getVersion(), "ambiguous version");
+        assertTrue(identification.getPotentialGroupIds().contains("org.example"), "first potential groupId");
+        assertTrue(identification.getPotentialGroupIds().contains("com.example"), "second potential groupId");
+    }
+
+    private static Artifact artifact(String groupId, String artifactId, String version) {
+        return new DefaultArtifact(groupId, artifactId, version, Artifact.SCOPE_COMPILE, "jar", "", null);
+    }
+
+    private RepositorySearchExposer repositoryExposer(List<Artifact> matches) {
+        RepositoryHashSearch search = new RepositoryHashSearch() {
+            @Override
+            public List<Artifact> searchFileHash(String hash) {
+                return matches;
+            }
+
+            @Override
+            public List<Artifact> searchBytecodeHash(String hash) {
+                return Collections.emptyList();
+            }
+        };
+        JarHashAnalyzer hashes = ignored -> "hash";
+        return new RepositorySearchExposer(search, hashes, hashes);
     }
 }
