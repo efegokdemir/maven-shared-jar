@@ -30,6 +30,7 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
+import java.util.stream.Collectors;
 
 import org.apache.maven.shared.jar.AbstractJarAnalyzerTestCase;
 import org.apache.maven.shared.jar.JarAnalyzer;
@@ -353,7 +354,7 @@ class JarClassesAnalyzerTest extends AbstractJarAnalyzerTestCase {
     }
 
     @Test
-    void analyzeMultiReleaseJarWithoutRootClassEntries() throws Exception {
+    void analyzeMultiReleaseJarWithoutRootEntries() throws Exception {
         File jarFile = File.createTempFile("multi-release-no-root", ".jar");
         try {
             try (JarFile sourceJar = new JarFile(getSampleJar("helloworld-9.jar"));
@@ -375,7 +376,14 @@ class JarClassesAnalyzerTest extends AbstractJarAnalyzerTestCase {
                 output.closeEntry();
             }
 
-            JarAnalyzer jarAnalyzer = new JarAnalyzer(jarFile);
+            JarAnalyzer jarAnalyzer = new JarAnalyzer(jarFile) {
+                @Override
+                public List<JarEntry> getEntries() {
+                    return super.getEntries().stream()
+                            .filter(entry -> entry.getName().startsWith("META-INF/versions/"))
+                            .collect(Collectors.toList());
+                }
+            };
             try {
                 JarData jarData = jarAnalyzer.getJarData();
                 assertDoesNotThrow(
