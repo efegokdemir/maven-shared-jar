@@ -82,8 +82,7 @@ public class JarAnalyzer implements Closeable {
     private final JarData jarData;
 
     /**
-     * Constructor. Opens the JAR file, so should be matched by a call to {@link #close()} or
-     * {@link #closeQuietly()}.
+     * Constructor. Opens the JAR file. Use try-with-resources to ensure that {@link #close()} is called.
      *
      * @param file the JAR file to open
      * @throws java.io.IOException if there is a problem opening the JAR file, or reading the manifest. The JAR file
